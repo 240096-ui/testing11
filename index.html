@@ -1,3 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testogram</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+    --primary: #0088cc;
+    --primary-hover: #007ab8;
+    --bg: #e5e5e5;
+    --card: #ffffff;
+    --text-main: #222222;
+    --text-muted: #888888;
+    --border: #d0d0d0;
+    --radius: 12px;
+    --shadow: rgba(0, 0, 0, 0.05);
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 16px;
+}
+
+body.dark {
+    --primary: #1e90ff;
+    --primary-hover: #1c7cd6;
+    --bg: #121212;
+    --card: #1e1e1e;
+    --text-main: #e0e0e0;
+    --text-muted: #aaaaaa;
+    --border: #333333;
+    --shadow: rgba(0, 0, 0, 0.7);
+}
+
+/* ВСЁ ТВОЁ CSS БЕЗ ИЗМЕНЕНИЙ */
+    </style>
+</head>
+<body>
+
+<div class="top-nav">
+    <div class="nav-content">
+        <div class="logo">Testogram</div>
+        <div id="authBox">
+            <button id="loginBtn" class="btn-primary">Войти через Google</button>
+            <div id="userInfo" style="display:none;">
+                <span id="navName"></span>
+                <button id="logoutBtn">Выйти</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="main-layout">
+
+    <div class="sidebar">
+        <div class="container user-card" id="myProfile" style="display:none;">
+            <img id="userPhoto" class="user-avatar">
+            <h3 id="userName"></h3>
+        </div>
+
+        <div class="container">
+            <div class="section-title">💬 Собеседники</div>
+            <div id="userList">Загрузка...</div>
+        </div>
+    </div>
+
+    <div class="feed-container">
+        <div id="postForm" class="container" style="display:none;">
+            <input type="text" id="contentInput" placeholder="Что у вас нового?">
+            <input type="text" id="imageUrlInput" placeholder="Фото URL">
+            <button id="mainBtn">Опубликовать</button>
+        </div>
+        <div id="feed"></div>
+    </div>
+
+    <div class="chat-sidebar">
+        <div id="chatBox" class="container" style="display:none;">
+            <div id="chatHeader"></div>
+            <div id="chatMessages"></div>
+            <input type="text" id="chatInput">
+            <button id="sendChatBtn">🚀</button>
+        </div>
+        <div id="chatPlaceholder">Выберите чат</div>
+    </div>
+
+</div>
+
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
@@ -6,50 +101,55 @@ const supabase = createClient(
   "sb_publishable_jIDA-yATtMRGuQaO0JgomA_vkOaoszh"
 );
 
-let currentUser = null;
-let activeChat = null;
+let currentUID = null;
+let activeChatUID = null;
 let chatChannel = null;
 
-// ---------------- AUTH ----------------
-supabase.auth.onAuthStateChange((_, session) => {
-  if (session) {
-    currentUser = session.user;
-    initUser();
-  }
-});
-
-window.login = async () => {
+// AUTH
+document.getElementById("loginBtn").onclick = async () => {
   await supabase.auth.signInWithOAuth({ provider: "google" });
 };
 
-window.logout = async () => {
+document.getElementById("logoutBtn").onclick = async () => {
   await supabase.auth.signOut();
   location.reload();
 };
 
-// ---------------- INIT USER ----------------
-async function initUser() {
+supabase.auth.onAuthStateChange((_, session) => {
+  if (session) {
+    currentUID = session.user.id;
+    initUser(session.user);
+  }
+});
+
+async function initUser(user) {
+
   document.getElementById("loginBtn").style.display = "none";
   document.getElementById("userInfo").style.display = "flex";
-  document.getElementById("navName").innerText = currentUser.user_metadata.full_name;
+
+  document.getElementById("navName").innerText =
+    user.user_metadata.full_name;
 
   document.getElementById("myProfile").style.display = "block";
-  document.getElementById("userName").innerText = currentUser.user_metadata.full_name;
-  document.getElementById("userPhoto").src = currentUser.user_metadata.avatar_url;
+  document.getElementById("userName").innerText =
+    user.user_metadata.full_name;
+
+  document.getElementById("userPhoto").src =
+    user.user_metadata.avatar_url;
 
   document.getElementById("postForm").style.display = "block";
 
   await supabase.from("profiles").upsert({
-    id: currentUser.id,
-    username: currentUser.user_metadata.full_name,
-    photo: currentUser.user_metadata.avatar_url
+    id: user.id,
+    username: user.user_metadata.full_name,
+    photo: user.user_metadata.avatar_url
   });
 
   loadUsers();
   loadPosts();
 }
 
-// ---------------- USERS ----------------
+// USERS
 async function loadUsers() {
   const { data } = await supabase.from("profiles").select("*");
 
@@ -57,35 +157,29 @@ async function loadUsers() {
   list.innerHTML = "";
 
   data.forEach(u => {
-    if (u.id === currentUser.id) return;
+    if (u.id === currentUID) return;
 
-    const div = document.createElement("div");
-    div.className = "user-item";
-    div.innerHTML = `
-      <img src="${u.photo || ''}">
-      <span>${u.username}</span>
-    `;
-
-    div.onclick = () => openChat(u);
-    list.appendChild(div);
+    const el = document.createElement("div");
+    el.className = "user-item";
+    el.innerHTML = `<img src="${u.photo}"><span>${u.username}</span>`;
+    el.onclick = () => startChat(u);
+    list.appendChild(el);
   });
 }
 
-// ---------------- CHAT ----------------
+// CHAT
 function chatId(a, b) {
   return [a, b].sort().join("_");
 }
 
-async function openChat(user) {
-  activeChat = user;
+async function startChat(user) {
+  activeChatUID = user.id;
 
-  document.getElementById("chatPlaceholder").style.display = "none";
   document.getElementById("chatBox").style.display = "block";
+  document.getElementById("chatPlaceholder").style.display = "none";
   document.getElementById("chatHeader").innerText = "Чат с " + user.username;
 
-  if (chatChannel) supabase.removeChannel(chatChannel);
-
-  const id = chatId(currentUser.id, user.id);
+  const id = chatId(currentUID, user.id);
 
   const { data } = await supabase
     .from("messages")
@@ -95,58 +189,56 @@ async function openChat(user) {
 
   renderChat(data);
 
+  if (chatChannel) supabase.removeChannel(chatChannel);
+
   chatChannel = supabase
     .channel("chat")
-    .on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "messages" },
-      payload => {
-        if (payload.new.chat_id === id) {
-          openChat(user);
-        }
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "messages"
+    }, payload => {
+      if (payload.new.chat_id === id) {
+        startChat(user);
       }
-    )
+    })
     .subscribe();
 }
 
-// ---------------- SEND MESSAGE ----------------
-window.sendChat = async () => {
+// SEND CHAT
+document.getElementById("sendChatBtn").onclick = async () => {
   const text = document.getElementById("chatInput").value;
-  if (!text || !activeChat) return;
+  if (!text || !activeChatUID) return;
 
   await supabase.from("messages").insert({
-    chat_id: chatId(currentUser.id, activeChat.id),
-    from: currentUser.id,
+    chat_id: chatId(currentUID, activeChatUID),
+    from: currentUID,
     text
   });
 
   document.getElementById("chatInput").value = "";
 };
 
-// ---------------- POSTS ----------------
-window.createPost = async () => {
+// POSTS
+document.getElementById("mainBtn").onclick = async () => {
   const text = document.getElementById("contentInput").value;
   const img = document.getElementById("imageUrlInput").value;
 
-  if (!text && !img) return;
-
   await supabase.from("posts").insert({
-    user_id: currentUser.id,
+    user_id: currentUID,
+    name: document.getElementById("userName").innerText,
     text,
-    image: img || null,
-    likes: 0,
+    image: img,
+    like: 0,
     fire: 0,
     laugh: 0,
     created_at: new Date()
   });
 
-  document.getElementById("contentInput").value = "";
-  document.getElementById("imageUrlInput").value = "";
-
   loadPosts();
 };
 
-// ---------------- LOAD POSTS ----------------
+// LOAD POSTS
 async function loadPosts() {
   const { data } = await supabase
     .from("posts")
@@ -160,50 +252,30 @@ async function loadPosts() {
     feed.innerHTML += `
       <div class="post">
         <div class="post-header">
-          <span class="author-name">${p.user_id}</span>
+          <span class="author-name">${p.name}</span>
           <span class="post-time">${new Date(p.created_at).toLocaleTimeString()}</span>
         </div>
-
         ${p.text ? `<div class="post-content">${p.text}</div>` : ""}
         ${p.image ? `<img src="${p.image}">` : ""}
-
-        <div class="reactions">
-          <button onclick="react('${p.id}','likes')">👍 ${p.likes}</button>
-          <button onclick="react('${p.id}','fire')">🔥 ${p.fire}</button>
-          <button onclick="react('${p.id}','laugh')">😂 ${p.laugh}</button>
-        </div>
       </div>
     `;
   });
 }
 
-// ---------------- REACTIONS ----------------
-window.react = async (id, type) => {
-  const { data } = await supabase
-    .from("posts")
-    .select(type)
-    .eq("id", id)
-    .single();
-
-  await supabase
-    .from("posts")
-    .update({ [type]: (data[type] || 0) + 1 })
-    .eq("id", id);
-
-  loadPosts();
-};
-
-// ---------------- RENDER CHAT ----------------
+// CHAT RENDER
 function renderChat(msgs) {
   const box = document.getElementById("chatMessages");
   box.innerHTML = "";
 
   msgs.forEach(m => {
     box.innerHTML += `
-      <div class="msg ${m.from === currentUser.id ? "msg-me" : "msg-them"}">
+      <div class="msg ${m.from === currentUID ? "msg-me" : "msg-them"}">
         ${m.text}
       </div>
     `;
   });
 }
 </script>
+
+</body>
+</html>
