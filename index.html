@@ -204,7 +204,7 @@
             border: 1px solid var(--border);
         }
 
-        input, textarea {
+        input {
             width: 100%;
             padding: 12px;
             border: 1px solid var(--border);
@@ -230,7 +230,8 @@
             background: var(--primary-hover);
         }
 
-        .modal {
+        /* Модальное окно */
+        .modal-overlay {
             display: none;
             position: fixed;
             top: 0;
@@ -243,30 +244,51 @@
             justify-content: center;
         }
 
-        .modal-content {
+        .modal-window {
             background: var(--card);
-            padding: 24px;
-            border-radius: 12px;
+            padding: 28px;
+            border-radius: 16px;
             max-width: 400px;
             width: 90%;
         }
 
-        .error {
+        .modal-window h2 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .error-msg {
             color: #e74c3c;
             font-size: 14px;
             margin-top: 8px;
+            text-align: center;
         }
 
-        .switch-mode {
+        .success-msg {
+            color: #27ae60;
+            font-size: 14px;
+            margin-top: 8px;
             text-align: center;
-            margin-top: 12px;
+        }
+
+        .switch-link {
+            text-align: center;
+            margin-top: 16px;
             color: var(--primary);
             cursor: pointer;
             font-size: 14px;
         }
 
-        .switch-mode:hover {
+        .switch-link:hover {
             text-decoration: underline;
+        }
+
+        .close-btn {
+            width: 100%;
+            margin-top: 12px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
         }
 
         @media (max-width: 900px) {
@@ -283,19 +305,20 @@
         <div class="logo">📱 Testogram</div>
         <div id="authSection">
             <div id="unauthButtons">
-                <button id="showLoginBtn">Вход</button>
-                <button id="showRegisterBtn" style="background: transparent; border: 1px solid var(--border);">Регистрация</button>
+                <button id="loginBtn">Вход</button>
+                <button id="registerBtn" style="background: transparent; border: 1px solid var(--border);">Регистрация</button>
             </div>
             <div id="authUserInfo" style="display: none; align-items: center; gap: 16px;">
                 <span id="userNameNav"></span>
                 <button id="logoutBtn">Выйти</button>
-                <button id="themeToggle">🌙</button>
+                <button id="themeToggleBtn">🌙</button>
             </div>
         </div>
     </div>
 </div>
 
 <div class="main-grid">
+    <!-- Левая колонка -->
     <div>
         <div id="profileCard" class="card" style="display: none;">
             <img id="profileAvatar" class="profile-avatar" src="">
@@ -309,23 +332,25 @@
         </div>
     </div>
 
+    <!-- Центр - лента -->
     <div>
         <div id="createPostCard" class="card" style="display: none;">
             <div class="card-title">✨ Создать пост</div>
             <input type="text" id="postText" placeholder="Что у вас нового?">
             <input type="text" id="postImage" placeholder="Ссылка на картинку (необязательно)">
-            <button id="createPostBtn">Опубликовать</button>
+            <button id="publishPostBtn">Опубликовать</button>
         </div>
         <div id="feed"></div>
     </div>
 
+    <!-- Правая колонка - чат -->
     <div>
         <div id="chatCard" class="card" style="display: none;">
             <div class="card-title" id="chatTitle">Чат</div>
-            <div id="chatMessages" class="chat-messages"></div>
+            <div id="chatMessagesList" class="chat-messages"></div>
             <div style="display: flex; gap: 8px;">
-                <input type="text" id="chatInput" placeholder="Сообщение...">
-                <button id="sendMessageBtn" style="width: auto; padding: 12px;">📤</button>
+                <input type="text" id="chatInputMessage" placeholder="Сообщение...">
+                <button id="sendChatMsgBtn" style="width: auto; padding: 12px;">📤</button>
             </div>
         </div>
         <div id="noChatCard" class="card" style="text-align: center; color: var(--text-muted);">
@@ -334,90 +359,110 @@
     </div>
 </div>
 
-<!-- Модалка входа/регистрации -->
-<div id="authModal" class="modal">
-    <div class="modal-content">
+<!-- Модальное окно авторизации -->
+<div id="authModal" class="modal-overlay">
+    <div class="modal-window">
         <h2 id="modalTitle">Вход</h2>
         <input type="email" id="authEmail" placeholder="Email">
-        <input type="password" id="authPassword" placeholder="Пароль (минимум 6 символов)">
-        <div id="authError" class="error"></div>
-        <button id="submitAuthBtn" style="width: 100%;">Войти</button>
-        <div id="switchMode" class="switch-mode">Нет аккаунта? Зарегистрироваться</div>
-        <button id="closeModalBtn" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--border);">Отмена</button>
+        <input type="password" id="authPassword" placeholder="Пароль (мин. 6 символов)">
+        <div id="authMessage"></div>
+        <button id="submitAuth">Войти</button>
+        <div id="toggleAuthMode" class="switch-link">Нет аккаунта? Зарегистрироваться</div>
+        <button id="closeModal" class="close-btn">Отмена</button>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    // ========== SUPABASE ==========
-    const supabaseUrl = "https://ieornhttkehqvfrllcqq.supabase.co";
-    const supabaseKey = "sb_publishable_jIDA-yATtMRGuQaO0JgomA_vkOaoszh";
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    // Supabase настройки
+    const SUPABASE_URL = "https://ieornhttkehqvfrllcqq.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_jIDA-yATtMRGuQaO0JgomA_vkOaoszh";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // ========== ПЕРЕМЕННЫЕ ==========
+    // Глобальные переменные
     let currentUser = null;
-    let currentChatUser = null;
-    let messagesSubscription = null;
-    let isLoginMode = true;
+    let activeChatUser = null;
+    let chatChannel = null;
+    let isLogin = true;
 
-    // ========== МОДАЛКА ==========
+    // DOM элементы
     const modal = document.getElementById('authModal');
-    
-    document.getElementById('showLoginBtn').onclick = () => {
-        isLoginMode = true;
-        document.getElementById('modalTitle').innerText = 'Вход';
-        document.getElementById('submitAuthBtn').innerText = 'Войти';
-        document.getElementById('switchMode').innerHTML = 'Нет аккаунта? Зарегистрироваться';
+    const modalTitle = document.getElementById('modalTitle');
+    const submitBtn = document.getElementById('submitAuth');
+    const toggleText = document.getElementById('toggleAuthMode');
+    const authMessage = document.getElementById('authMessage');
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const closeModalBtn = document.getElementById('closeModal');
+
+    // ==================== МОДАЛЬНОЕ ОКНО ====================
+    function openModal() {
         modal.style.display = 'flex';
-    };
-
-    document.getElementById('showRegisterBtn').onclick = () => {
-        isLoginMode = false;
-        document.getElementById('modalTitle').innerText = 'Регистрация';
-        document.getElementById('submitAuthBtn').innerText = 'Зарегистрироваться';
-        document.getElementById('switchMode').innerHTML = 'Уже есть аккаунт? Войти';
-        modal.style.display = 'flex';
-    };
-
-    document.getElementById('switchMode').onclick = () => {
-        isLoginMode = !isLoginMode;
-        if (isLoginMode) {
-            document.getElementById('modalTitle').innerText = 'Вход';
-            document.getElementById('submitAuthBtn').innerText = 'Войти';
-            document.getElementById('switchMode').innerHTML = 'Нет аккаунта? Зарегистрироваться';
-        } else {
-            document.getElementById('modalTitle').innerText = 'Регистрация';
-            document.getElementById('submitAuthBtn').innerText = 'Зарегистрироваться';
-            document.getElementById('switchMode').innerHTML = 'Уже есть аккаунт? Войти';
-        }
-        document.getElementById('authError').innerText = '';
-    };
-
-    document.getElementById('closeModalBtn').onclick = () => {
-        modal.style.display = 'none';
         document.getElementById('authEmail').value = '';
         document.getElementById('authPassword').value = '';
-        document.getElementById('authError').innerText = '';
+        authMessage.innerHTML = '';
+    }
+
+    function closeModalWindow() {
+        modal.style.display = 'none';
+    }
+
+    loginBtn.onclick = () => {
+        isLogin = true;
+        modalTitle.innerText = 'Вход';
+        submitBtn.innerText = 'Войти';
+        toggleText.innerText = 'Нет аккаунта? Зарегистрироваться';
+        openModal();
     };
 
-    document.getElementById('submitAuthBtn').onclick = async () => {
-        const email = document.getElementById('authEmail').value;
+    registerBtn.onclick = () => {
+        isLogin = false;
+        modalTitle.innerText = 'Регистрация';
+        submitBtn.innerText = 'Зарегистрироваться';
+        toggleText.innerText = 'Уже есть аккаунт? Войти';
+        openModal();
+    };
+
+    toggleText.onclick = () => {
+        isLogin = !isLogin;
+        if (isLogin) {
+            modalTitle.innerText = 'Вход';
+            submitBtn.innerText = 'Войти';
+            toggleText.innerText = 'Нет аккаунта? Зарегистрироваться';
+        } else {
+            modalTitle.innerText = 'Регистрация';
+            submitBtn.innerText = 'Зарегистрироваться';
+            toggleText.innerText = 'Уже есть аккаунт? Войти';
+        }
+        authMessage.innerHTML = '';
+    };
+
+    closeModalBtn.onclick = closeModalWindow;
+
+    // Нажатие вне модалки - закрыть
+    modal.onclick = (e) => {
+        if (e.target === modal) closeModalWindow();
+    };
+
+    // ==================== АВТОРИЗАЦИЯ ====================
+    submitBtn.onclick = async () => {
+        const email = document.getElementById('authEmail').value.trim();
         const password = document.getElementById('authPassword').value;
-        const errorDiv = document.getElementById('authError');
 
         if (!email || !password) {
-            errorDiv.innerText = 'Заполните все поля';
+            authMessage.innerHTML = '<div class="error-msg">Заполните все поля</div>';
             return;
         }
 
-        if (!isLoginMode && password.length < 6) {
-            errorDiv.innerText = 'Пароль должен быть минимум 6 символов';
+        if (!isLogin && password.length < 6) {
+            authMessage.innerHTML = '<div class="error-msg">Пароль должен быть минимум 6 символов</div>';
             return;
         }
 
         try {
             let result;
-            if (isLoginMode) {
+            if (isLogin) {
                 result = await supabase.auth.signInWithPassword({ email, password });
             } else {
                 result = await supabase.auth.signUp({ email, password });
@@ -425,106 +470,98 @@
 
             if (result.error) throw result.error;
 
-            if (!isLoginMode) {
-                errorDiv.style.color = '#27ae60';
-                errorDiv.innerText = '✅ Регистрация успешна! Теперь войдите.';
+            if (!isLogin) {
+                authMessage.innerHTML = '<div class="success-msg">✅ Регистрация успешна! Теперь войдите.</div>';
                 setTimeout(() => {
-                    isLoginMode = true;
-                    document.getElementById('modalTitle').innerText = 'Вход';
-                    document.getElementById('submitAuthBtn').innerText = 'Войти';
-                    document.getElementById('switchMode').innerHTML = 'Нет аккаунта? Зарегистрироваться';
-                    errorDiv.innerText = '';
+                    isLogin = true;
+                    modalTitle.innerText = 'Вход';
+                    submitBtn.innerText = 'Войти';
+                    toggleText.innerText = 'Нет аккаунта? Зарегистрироваться';
+                    authMessage.innerHTML = '';
+                    document.getElementById('authEmail').value = '';
+                    document.getElementById('authPassword').value = '';
                 }, 2000);
             } else {
-                modal.style.display = 'none';
-                document.getElementById('authEmail').value = '';
-                document.getElementById('authPassword').value = '';
+                closeModalWindow();
             }
-        } catch (error) {
-            errorDiv.style.color = '#e74c3c';
-            errorDiv.innerText = error.message;
+        } catch (err) {
+            authMessage.innerHTML = `<div class="error-msg">${err.message}</div>`;
         }
     };
 
-    document.getElementById('logoutBtn').onclick = async () => {
+    logoutBtn.onclick = async () => {
         await supabase.auth.signOut();
         location.reload();
     };
 
-    // ========== ОСНОВНАЯ ЛОГИКА ==========
-    async function onUserLoggedIn(user) {
+    // ==================== ПОСЛЕ ВХОДА ====================
+    async function initAfterLogin(user) {
         currentUser = user;
-        
         const userName = user.email.split('@')[0];
-        const userAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`;
-        
+        const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`;
+
+        // Сохраняем в БД
         await supabase.from('users').upsert({
             uid: user.id,
             name: userName,
             email: user.email,
-            photo: userAvatar
+            photo: avatarUrl
         });
 
+        // Меняем UI
         document.getElementById('unauthButtons').style.display = 'none';
         document.getElementById('authUserInfo').style.display = 'flex';
         document.getElementById('userNameNav').innerText = userName;
         document.getElementById('profileCard').style.display = 'block';
         document.getElementById('createPostCard').style.display = 'block';
-        
         document.getElementById('profileName').innerText = userName;
-        document.getElementById('profileAvatar').src = userAvatar;
+        document.getElementById('profileAvatar').src = avatarUrl;
 
-        await loadUsers();
-        await loadPosts();
+        await loadAllUsers();
+        await loadAllPosts();
         subscribeToPosts();
     }
 
-    async function loadUsers() {
+    // ==================== ЗАГРУЗКА ПОЛЬЗОВАТЕЛЕЙ ====================
+    async function loadAllUsers() {
         const { data: users, error } = await supabase
             .from('users')
             .select('*')
             .neq('uid', currentUser?.id);
 
-        if (error) {
-            console.error(error);
-            return;
-        }
-
         const container = document.getElementById('usersList');
-        
-        if (!users || users.length === 0) {
+        if (error || !users || users.length === 0) {
             container.innerHTML = '<div style="text-align: center; color: var(--text-muted);">🤝 Нет других пользователей</div>';
             return;
         }
 
         container.innerHTML = '';
         users.forEach(user => {
-            const userDiv = document.createElement('div');
-            userDiv.className = 'user-item';
-            if (currentChatUser?.uid === user.uid) userDiv.classList.add('active');
-            userDiv.innerHTML = `
-                <img class="user-avatar-small" src="${user.photo || 'https://via.placeholder.com/40'}">
+            const div = document.createElement('div');
+            div.className = 'user-item';
+            if (activeChatUser?.uid === user.uid) div.classList.add('active');
+            div.innerHTML = `
+                <img class="user-avatar-small" src="${user.photo}">
                 <span>${user.name}</span>
             `;
-            userDiv.onclick = () => startChat(user);
-            container.appendChild(userDiv);
+            div.onclick = () => startChatWithUser(user);
+            container.appendChild(div);
         });
     }
 
-    async function startChat(user) {
-        currentChatUser = user;
-        
+    // ==================== ЧАТ ====================
+    async function startChatWithUser(user) {
+        activeChatUser = user;
         document.getElementById('noChatCard').style.display = 'none';
         document.getElementById('chatCard').style.display = 'block';
         document.getElementById('chatTitle').innerHTML = `💬 Чат с ${user.name}`;
-        
-        if (messagesSubscription) {
-            messagesSubscription.unsubscribe();
-        }
-        
+
+        if (chatChannel) chatChannel.unsubscribe();
+
         const chatId = [currentUser.id, user.uid].sort().join('_');
-        
-        messagesSubscription = supabase
+
+        // Подписка на новые сообщения
+        chatChannel = supabase
             .channel(`chat_${chatId}`)
             .on('postgres_changes', {
                 event: 'INSERT',
@@ -532,43 +569,41 @@
                 table: 'messages',
                 filter: `chat_id=eq.${chatId}`
             }, (payload) => {
-                addMessageToChat(payload.new);
+                appendMessage(payload.new);
             })
             .subscribe();
-        
-        const { data: messages, error } = await supabase
+
+        // Загрузка истории
+        const { data: messages } = await supabase
             .from('messages')
             .select('*')
             .eq('chat_id', chatId)
             .order('timestamp', { ascending: true });
-        
-        if (!error) {
-            const container = document.getElementById('chatMessages');
-            container.innerHTML = '';
-            messages?.forEach(msg => addMessageToChat(msg));
-        }
-        
-        loadUsers();
+
+        const container = document.getElementById('chatMessagesList');
+        container.innerHTML = '';
+        messages?.forEach(m => appendMessage(m));
+
+        loadAllUsers();
     }
 
-    function addMessageToChat(message) {
-        const container = document.getElementById('chatMessages');
-        const isMine = message.from_uid === currentUser.id;
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${isMine ? 'message-mine' : 'message-theirs'}`;
-        messageDiv.textContent = message.text;
-        container.appendChild(messageDiv);
+    function appendMessage(msg) {
+        const container = document.getElementById('chatMessagesList');
+        const isMine = msg.from_uid === currentUser.id;
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${isMine ? 'message-mine' : 'message-theirs'}`;
+        msgDiv.textContent = msg.text;
+        container.appendChild(msgDiv);
         container.scrollTop = container.scrollHeight;
     }
 
-    document.getElementById('sendMessageBtn').onclick = async () => {
-        if (!currentChatUser) return;
-        const input = document.getElementById('chatInput');
+    document.getElementById('sendChatMsgBtn').onclick = async () => {
+        if (!activeChatUser) return;
+        const input = document.getElementById('chatInputMessage');
         const text = input.value.trim();
         if (!text) return;
-        
-        const chatId = [currentUser.id, currentChatUser.uid].sort().join('_');
-        
+
+        const chatId = [currentUser.id, activeChatUser.uid].sort().join('_');
         await supabase.from('messages').insert({
             chat_id: chatId,
             from_uid: currentUser.id,
@@ -576,28 +611,23 @@
             text: text,
             timestamp: new Date().toISOString()
         });
-        
         input.value = '';
     };
 
-    async function loadPosts() {
-        const { data: posts, error } = await supabase
+    // ==================== ПОСТЫ ====================
+    async function loadAllPosts() {
+        const { data: posts } = await supabase
             .from('posts')
             .select('*')
             .order('timestamp', { ascending: false });
-        
-        if (error) {
-            console.error(error);
+
+        const feed = document.getElementById('feed');
+        if (!posts || posts.length === 0) {
+            feed.innerHTML = '<div class="card" style="text-align: center;">Нет постов. Напишите первый!</div>';
             return;
         }
-        
-        renderPosts(posts || []);
-    }
-    
-    function renderPosts(posts) {
-        const feed = document.getElementById('feed');
+
         feed.innerHTML = '';
-        
         posts.forEach(post => {
             const postDiv = document.createElement('div');
             postDiv.className = 'post';
@@ -617,81 +647,61 @@
             feed.appendChild(postDiv);
         });
     }
-    
-    function escapeHtml(text) {
+
+    function escapeHtml(str) {
+        if (!str) return '';
         const div = document.createElement('div');
-        div.textContent = text;
+        div.textContent = str;
         return div.innerHTML;
     }
-    
-    window.addReaction = async (postId, reactionType) => {
-        const { data: post } = await supabase
-            .from('posts')
-            .select('reactions')
-            .eq('id', postId)
-            .single();
-        
+
+    window.addReaction = async (postId, type) => {
+        const { data: post } = await supabase.from('posts').select('reactions').eq('id', postId).single();
         if (post) {
             const newReactions = { ...(post.reactions || {}) };
-            newReactions[reactionType] = (newReactions[reactionType] || 0) + 1;
-            
-            await supabase
-                .from('posts')
-                .update({ reactions: newReactions })
-                .eq('id', postId);
+            newReactions[type] = (newReactions[type] || 0) + 1;
+            await supabase.from('posts').update({ reactions: newReactions }).eq('id', postId);
         }
     };
-    
+
     function subscribeToPosts() {
-        supabase
-            .channel('posts_channel')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'posts'
-            }, () => {
-                loadPosts();
-            })
-            .subscribe();
+        supabase.channel('posts_feed').on('postgres_changes', {
+            event: '*', schema: 'public', table: 'posts'
+        }, () => loadAllPosts()).subscribe();
     }
-    
-    document.getElementById('createPostBtn').onclick = async () => {
+
+    document.getElementById('publishPostBtn').onclick = async () => {
         const text = document.getElementById('postText').value;
-        const imageUrl = document.getElementById('postImage').value;
-        
-        if (!text && !imageUrl) {
+        const img = document.getElementById('postImage').value;
+        if (!text && !img) {
             alert('Напишите текст или добавьте картинку');
             return;
         }
-        
         await supabase.from('posts').insert({
             name: currentUser.email.split('@')[0],
             user_id: currentUser.id,
             text: text || '',
-            image_url: imageUrl || '',
+            image_url: img || '',
             timestamp: new Date().toISOString(),
             reactions: { like: 0, fire: 0, laugh: 0 }
         });
-        
         document.getElementById('postText').value = '';
         document.getElementById('postImage').value = '';
     };
 
-    // ========== ТЕМНАЯ ТЕМА ==========
-    document.getElementById('themeToggle').onclick = () => {
+    // ==================== ТЕМА ====================
+    document.getElementById('themeToggleBtn').onclick = () => {
         document.body.classList.toggle('dark');
     };
 
-    // ========== ЗАПУСК ==========
+    // ==================== ПРОВЕРКА СЕССИИ ====================
     supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) {
-            onUserLoggedIn(session.user);
-        }
+        if (session?.user) initAfterLogin(session.user);
     });
 
     supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
-            onUserLoggedIn(session.user);
+            initAfterLogin(session.user);
         } else if (event === 'SIGNED_OUT') {
             location.reload();
         }
